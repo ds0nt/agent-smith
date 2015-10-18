@@ -1,0 +1,33 @@
+global
+  log 127.0.0.1 local0
+  log 127.0.0.1 local1 notice
+  # chroot /var/lib/haproxy
+  # user haproxy
+  # group haproxy
+  # daemon
+
+defaults
+  log global
+  mode http
+  option httplog
+  option dontlognull
+  timeout connect 5000ms
+  timeout client 50000ms
+  timeout server 50000ms
+
+listen stats :8080
+  stats enable
+  stats uri /
+
+frontend http-in
+  bind *:80
+  {{ range . }}
+  acl host_{{ .Name }} hdr_beg(host) -i {{ .Name }}.
+  use_backend backend_{{ .Name }} if host_{{ .Name }}
+  {{ end }}
+
+{{ range . }} {{ $name := .Name }} {{ $port := .Port }}
+backend backend_{{.Name}}
+    {{ range $index, $ip := .Hosts }}
+    server {{ $name }}-{{ $index }} {{ $ip }}:{{ $port }} check {{ end }}
+{{ end }}
